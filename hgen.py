@@ -111,19 +111,61 @@ class LHGen(object):
 		self.D=self.H.shape[0] 
 
 class RHGen(object):
-	def __init__(self,terms,N): #only used in finite algorithm.in infinite algorithm,rhgen is just a copy of lhgeni
-		pass
+	def __init__(self,terms,N): #mirror image not used
+		self.l=1
+		self.N=N
+		self.d=terms[0].op1.shape[0]
+		self.D=self.d
+		self.H=np.zeros([self.d,self.d])
+		self.part_terms=[]
+		self.terms=terms
+		for term in self.terms:
+			if term.op1 is None and (term.site2 is None or term.site2==N):
+				self.H=self.H+term.op2*term.param
+			elif term.op1 is not None and (term.site2 is None or term.site2==1):
+				pterm=deepcopy(term)
+				pterm.site2=N
+				pterm.site1=N-pterm.dist
+				self.part_terms.append(pterm)
+
+	def enlarge(self):
+		self.l=self.l+1
+		self.H=kron(identity(self.d),self.H)
+		pts=[]
+		for pterm in self.part_terms:
+			if pterm.site1==self.N-self.l+1:
+				self.H=self.H+kron(pterm.op2,pterm.op1)*pterm.param
+			else:
+				pterm.op2=kron(identity(self.d),pterm.op1)
+				pts.append(pterm)
+		self.part_terms=deepcopy(pts)
+		for term in self.terms:
+			if term.op1 is None and (term.site2 is None or term.site2==self.N-self.l+1):
+				self.H=self.H+kron(term.op2,identity(self.D))*term.param
+			elif term.op1 is not None and (term.site2 is None or term.site2==self.N-self.l+1):
+				pterm=deepcopy(term)
+				pterm.op2=kron(pterm.op2,identity(self.D))
+				pterm.site2=self.N-self.l+1
+				pterm.site1=self.N-self.l+1-pterm.dist
+				self.part_terms.append(pterm)
+		self.D=self.D*self.d
+	
+	def truncate(self,V):
+		self.H=V.conjugate().transpose().dot(self.H.dot(V))
+		for pterm in self.part_terms:
+			pterm.op2=V.conjugate().transpose().dot(pterm.op2.dot(V))
+		self.D=self.H.shape[0]
 
 class SuperBlock(object):
 	def __init__(self,lhgen,rhgen):
-		self.lpterms=deepcopy(lhgen.part_terms)
-		self.rpterms=deepcopy(rhgen.part_terms)
-		self.H=kron(lhgen.H,identity(rhgen.D))+kron(identity(lhgen.D),rhgen.H)
-		for lpterm in self.lpterms:
-			for rpterm in self.rpterms:
-				if lpterm.label[0]==rpterm.label[1] and lpterm.label[1]==rpterm.label[0] and \
-					lpterm.site1==rpterm.site1 and lpterm.site2==rpterm.site2: #for infinite algorithm,this works only in special condition!
-					self.H=self.H+kron(lpterm.op1,rpterm.op1)*lpterm.param
+		self.lhgen=deepcopy(lhgen)
+		self.rhgen=deepcopy(rhgen)
+		self.H=kron(self.lhgen.H,identity(self.rhgen.D))+kron(identity(self.lhgen.D),self.rhgen.H)
+		for lpterm in self.lhgen.part_terms:
+			for rpterm in self.rhgen.part_terms:
+				if all(lpterm.label)==all(rpterm.label) and (lpterm.site1+self.rhgen.N-self.lhgen.l-self.rhgen.l,lpterm.site2+self.rhgen.N-self.lhgen.l-self.rhgen.l)==(rpterm.site1,rpterm.site2): 
+					#this doesn't work in mirror image
+					self.H=self.H+kron(lpterm.op1,rpterm.op2)*lpterm.param
 
 class Term(object):
 	'''

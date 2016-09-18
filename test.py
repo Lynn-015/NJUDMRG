@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 from scipy.sparse.linalg import eigsh
 
-from hgen import NRGHGen,LHGen,Term
+from hgen import NRGHGen,LHGen,RHGen,Term
 from nrg import NRGEngine
 from dmrg import DMRGEngine
 
@@ -16,6 +16,7 @@ terms=[Term(op1=Sp,op2=Sm,param=J/2,dist=1,label=['Sp','Sm']),Term(op1=Sm,op2=Sp
 
 hgen=NRGHGen(terms)
 lhgen=LHGen(terms)
+rhgen=RHGen(terms,5)
 
 def test():
 	for i in range(5):
@@ -29,8 +30,9 @@ def testNRG():
 	nrg.full_sweep(N=5,m=10)
 
 def testDMRG():
-	dmrg=DMRGEngine(lhgen)
-	dmrg.infinite(N=5,m=10)
+	dmrg=DMRGEngine(lhgen,rhgen)
+	dmrg.infinite(m=10)
+	dmrg.finite(mwarmup=10,mlist=[10,20,30,40])
 
 if __name__=='__main__':
 	#test()
