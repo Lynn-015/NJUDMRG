@@ -10,6 +10,15 @@ from hgen import LHGen,SuperBlock,Term
 class DMRGEngine(object):
 	'''
 	dmrg engine
+	construct:DMRGEngine(lhgen,rhgen)
+	
+	attributes:
+	lhgen:left hamiltonian generator
+	rhgen:right hamiltonian generator
+	N:length of whole chain
+	lblocks:a list to store left generators
+	rblocks:a list to store right generators
+	sblock:super block	
 	'''
 	def __init__(self,lhgen,rhgen):
 		self.lhgen=lhgen
@@ -19,6 +28,7 @@ class DMRGEngine(object):
 		self.rblocks=[deepcopy(self.rhgen)]
 
 	def single_step(self,m): #only for infinite algorithm
+		'''single dmrg step.m:number of kept states'''
 		self.lhgen.enlarge()
 		self.rhgen.enlarge()
 		self.sblock=SuperBlock(self.lhgen,self.rhgen)
@@ -34,10 +44,12 @@ class DMRGEngine(object):
 		self.rblocks.append(deepcopy(self.rhgen))
 
 	def infinite(self,m):
+		'''infinite algorithm'''
 		for i in range(self.N-1):
 			self.single_step(m)
 	
 	def right_sweep(self,m):
+		'''sweep one site towards right'''
 		self.lhgen.enlarge()
 		self.rblocks.pop(-1)
 		self.sblock=SuperBlock(self.lhgen,self.rblocks[-1])
@@ -52,6 +64,7 @@ class DMRGEngine(object):
 		self.lblocks.append(deepcopy(self.lhgen))
 
 	def left_sweep(self,m):
+		'''sweep one site towards left'''
 		self.rhgen.enlarge()
 		self.lblocks.pop(-1)
 		self.sblock=SuperBlock(self.lblocks[-1],self.rhgen)
@@ -66,6 +79,7 @@ class DMRGEngine(object):
 		self.rblocks.append(deepcopy(self.rhgen))
 
 	def finite(self,mwarmup,mlist):
+		'''finite algorithm'''
 		self.infinite(mwarmup) #mind the initialize problem
 		for m in mlist:
 			for i in range(self.N/2,self.N-1):
