@@ -1,11 +1,11 @@
 '''
-dmrg
+dmrg engine
 '''
 import numpy as np
 from scipy.sparse.linalg import eigsh
 from copy import deepcopy
 
-from hgen import LHGen,SuperBlock,Term
+from hgen import SuperBlock
 
 class DMRGEngine(object):
 	'''
@@ -23,7 +23,7 @@ class DMRGEngine(object):
 	def __init__(self,lhgen,rhgen):
 		self.lhgen=lhgen
 		self.rhgen=rhgen
-		self.N=rhgen.N
+		self.N=self.rhgen.N
 		self.lblocks=[deepcopy(self.lhgen)]
 		self.rblocks=[deepcopy(self.rhgen)]
 
@@ -33,7 +33,8 @@ class DMRGEngine(object):
 		self.rhgen.enlarge()
 		self.sblock=SuperBlock(self.lhgen,self.rhgen)
 		val,vec=eigsh(self.sblock.H,1,which='SA')
-		print val
+		print '*'*(self.lhgen.l-1)+'++'+'*'*(self.rhgen.l-1)
+		print 'E=',float(val)
 		if self.lhgen.H.shape[0]>m:
 			psi=vec.reshape([self.lhgen.D,self.rhgen.D])
 			phoA=psi.dot(psi.conjugate().transpose())
@@ -45,18 +46,20 @@ class DMRGEngine(object):
 
 	def infinite(self,m):
 		'''infinite algorithm'''
-		for i in range(self.N-1):
+		for i in range(self.N/2-1):
 			self.single_step(m)
 	
 	def right_sweep(self,m):
 		'''sweep one site towards right'''
+		self.lhgen=deepcopy(self.lblocks[-1])
 		self.lhgen.enlarge()
 		self.rblocks.pop(-1)
 		self.sblock=SuperBlock(self.lhgen,self.rblocks[-1])
 		val,vec=eigsh(self.sblock.H,1,which='SA')
-		print val
+		print '*'*(self.lhgen.l-1)+'+'+'*'*(self.rblocks[-1].l)
+		print 'E=',float(val)
 		if self.lhgen.D>m:
-			psi=vec.reshape([self.lhgen.D,self.sblock.rhgen.D])
+			psi=vec.reshape([self.lhgen.D,self.rblocks[-1].D])
 			phoA=psi.dot(psi.conjugate().transpose())
 			vals,vecs=eigsh(phoA,m,which='SA')
 			U=vecs
@@ -65,13 +68,15 @@ class DMRGEngine(object):
 
 	def left_sweep(self,m):
 		'''sweep one site towards left'''
+		self.rhgen=deepcopy(self.rblocks[-1])
 		self.rhgen.enlarge()
 		self.lblocks.pop(-1)
 		self.sblock=SuperBlock(self.lblocks[-1],self.rhgen)
 		val,vec=eigsh(self.sblock.H,1,which='SA')
-		print val
+		print '*'*(self.lblocks[-1].l)+'+'+'*'*(self.rhgen.l-1)
+		print 'E=',float(val)
 		if self.rhgen.D>m:
-			psi=vec.reshape([self.sblock.lhgen.D,self.rhgen.D])
+			psi=vec.reshape([self.lblocks[-1].D,self.rhgen.D])
 			phoA=psi.transpose().dot(psi.conjugate())
 			vals,vecs=eigsh(phoA,m,which='SA')
 			V=vecs
